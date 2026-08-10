@@ -59,7 +59,8 @@ sealed class SpecificSettingsState {
     val selfHasGroups: Boolean = false,
     val canShowMoreGroupsInCommon: Boolean = false,
     val groupsInCommonExpanded: Boolean = false,
-    val contactLinkState: ContactLinkState = ContactLinkState.NONE
+    val contactLinkState: ContactLinkState = ContactLinkState.NONE,
+    val recordingEnabled: Boolean? = null
   ) : SpecificSettingsState() {
 
     override val isLoaded: Boolean = true
@@ -89,7 +90,8 @@ sealed class SpecificSettingsState {
     val legacyGroupState: LegacyGroupPreference.State = LegacyGroupPreference.State.NONE,
     val isAnnouncementGroup: Boolean = false,
     val memberLabelsByRecipientId: Map<RecipientId, MemberLabel> = emptyMap(),
-    val canSetOwnMemberLabel: Boolean = false
+    val canSetOwnMemberLabel: Boolean = false,
+    val recordingEnabled: Boolean? = null
   ) : SpecificSettingsState() {
 
     val canEndGroup: Boolean get() = isActive && groupId.isV2 && isSelfAdmin

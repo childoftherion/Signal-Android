@@ -1417,6 +1417,12 @@
             android:foregroundServiceType="dataSync|microphone|camera|phoneCall|mediaProjection" />
 
         <service
+            android:name="org.thoughtcrime.securesms.recording.AudioCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|phoneCall"
+            android:stopWithTask="false" />
+
+        <service
             android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
             tools:node="remove" />
 

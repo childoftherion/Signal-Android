@@ -102,6 +102,14 @@ class DataAndStorageSettingsFragment : ComposeFragment() {
     override fun onDismissStayConnectedInBackgroundDialog() {
       viewModel.dismissStayConnectedInBackgroundDialog()
     }
+
+    override fun onRecordCallsToggled(enabled: Boolean) {
+      viewModel.setRecordCallsEnabled(enabled)
+    }
+
+    override fun onRecordCallsLibraryClick() {
+      findNavController().safeNavigate(R.id.action_dataAndStorageSettingsFragment_to_recordingLibraryFragment)
+    }
   }
 }
 
@@ -117,6 +125,8 @@ private interface DataAndStorageSettingsCallbacks {
   fun onForceWebsocketModeChanged(enabled: Boolean) = Unit
   fun onConfirmStayConnectedInBackground() = Unit
   fun onDismissStayConnectedInBackgroundDialog() = Unit
+  fun onRecordCallsToggled(enabled: Boolean) = Unit
+  fun onRecordCallsLibraryClick() = Unit
 
   object Empty : DataAndStorageSettingsCallbacks
 }
@@ -290,6 +300,29 @@ private fun DataAndStorageSettingsScreen(
           onClick = callbacks::onUseProxyClick
         )
       }
+
+      item {
+        Dividers.Default()
+      }
+
+      item {
+        Texts.SectionHeader(stringResource(R.string.preferences__call_recording))
+      }
+
+      item {
+        Rows.ToggleRow(
+          text = stringResource(R.string.preferences__record_all_calls),
+          checked = state.isRecordCallsEnabled,
+          onCheckChanged = callbacks::onRecordCallsToggled
+        )
+      }
+
+      item {
+        Rows.TextRow(
+          text = stringResource(R.string.preferences__record_calls_library),
+          onClick = callbacks::onRecordCallsLibraryClick
+        )
+      }
     }
 
     if (state.showStayConnectedDialog) {
@@ -320,7 +353,8 @@ private fun DataAndStorageSettingsScreenPreview() {
         sentMediaQuality = SentMediaQuality.STANDARD,
         forceWebsocketMode = false,
         playServicesAvailable = true,
-        showStayConnectedDialog = false
+        showStayConnectedDialog = false,
+        isRecordCallsEnabled = false
       ),
       callbacks = DataAndStorageSettingsCallbacks.Empty
     )

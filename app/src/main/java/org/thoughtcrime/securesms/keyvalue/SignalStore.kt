@@ -39,6 +39,7 @@ class SignalStore(context: Application, private val store: KeyValueStore) {
   val backupValues = BackupValues(store)
   val callQualityValues = CallQualityValues(store)
   val labsValues = LabsValues(store)
+  val recordingValues = RecordingValues(store)
 
   val plainTextValues = PlainTextSharedPrefsDataStore(context)
 
@@ -88,6 +89,7 @@ class SignalStore(context: Application, private val store: KeyValueStore) {
       backup.onFirstEverAppLaunch()
       callQuality.onFirstEverAppLaunch()
       labs.onFirstEverAppLaunch()
+      recording.onFirstEverAppLaunch()
     }
 
     @JvmStatic
@@ -121,7 +123,8 @@ class SignalStore(context: Application, private val store: KeyValueStore) {
           apkUpdate.keysToIncludeInBackup +
           backup.keysToIncludeInBackup +
           callQuality.keysToIncludeInBackup +
-          labs.keysToIncludeInBackup
+          labs.keysToIncludeInBackup +
+          recording.keysToIncludeInBackup
       }
 
     /**
@@ -290,6 +293,11 @@ class SignalStore(context: Application, private val store: KeyValueStore) {
     val labs: LabsValues
       get() = instance!!.labsValues
 
+    @JvmStatic
+    @get:JvmName("recording")
+    val recording: RecordingValues
+      get() = instance!!.recordingValues
+
     val groupsV2AciAuthorizationCache: GroupsV2AuthorizationSignalStoreCache
       get() = GroupsV2AuthorizationSignalStoreCache.createAciCache(instance!!.store)
 
@@ -307,6 +315,14 @@ class SignalStore(context: Application, private val store: KeyValueStore) {
     @JvmStatic
     fun blockUntilAllWritesFinished() {
       instance!!.store.blockUntilAllWritesFinished()
+    }
+
+    /**
+     * @return True if the store is initialized and ready for use.
+     */
+    @JvmStatic
+    fun isUnlocked(): Boolean {
+      return instance != null
     }
   }
 }

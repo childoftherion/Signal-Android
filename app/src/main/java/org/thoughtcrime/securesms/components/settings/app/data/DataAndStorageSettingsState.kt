@@ -13,5 +13,6 @@ data class DataAndStorageSettingsState(
   val sentMediaQuality: SentMediaQuality,
   val forceWebsocketMode: Boolean,
   val playServicesAvailable: Boolean,
-  val showStayConnectedDialog: Boolean
+  val showStayConnectedDialog: Boolean,
+  val isRecordCallsEnabled: Boolean
 )

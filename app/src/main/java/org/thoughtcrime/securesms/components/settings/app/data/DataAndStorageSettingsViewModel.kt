@@ -56,6 +56,11 @@ class DataAndStorageSettingsViewModel(
     getStateAndCopyStorageUsage()
   }
 
+  fun setRecordCallsEnabled(enabled: Boolean) {
+    SignalStore.recording.isRecordCallsEnabled = enabled
+    getStateAndCopyStorageUsage()
+  }
+
   fun onForceWebsocketModeToggled(enabled: Boolean) {
     if (enabled) {
       store.update { it.copy(showStayConnectedDialog = true) }
@@ -102,7 +107,8 @@ class DataAndStorageSettingsViewModel(
     sentMediaQuality = SignalStore.settings.sentMediaQuality,
     forceWebsocketMode = SignalStore.settings.forceWebsocketMode.isEnabled,
     playServicesAvailable = PlayServicesUtil.getPlayServicesStatus(AppDependencies.application) == PlayServicesUtil.PlayServicesStatus.SUCCESS,
-    showStayConnectedDialog = false
+    showStayConnectedDialog = false,
+    isRecordCallsEnabled = SignalStore.recording.isRecordCallsEnabled
   )
 
   class Factory(

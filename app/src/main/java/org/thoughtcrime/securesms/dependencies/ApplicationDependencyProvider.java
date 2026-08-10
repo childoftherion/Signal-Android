@@ -88,6 +88,7 @@ import org.thoughtcrime.securesms.jobs.SendDeliveryReceiptJob;
 import org.thoughtcrime.securesms.jobs.TypingSendJob;
 import org.thoughtcrime.securesms.keyvalue.SignalStore;
 import org.thoughtcrime.securesms.megaphone.MegaphoneRepository;
+import org.thoughtcrime.securesms.recording.RecordingManager;
 import org.thoughtcrime.securesms.messages.IncomingMessageObserver;
 import org.thoughtcrime.securesms.net.DeviceTransferBlockingInterceptor;
 import org.thoughtcrime.securesms.net.SignalWebSocketHealthMonitor;
@@ -681,6 +682,11 @@ public class ApplicationDependencyProvider implements AppDependencies.Provider {
 
   @Override public @NotNull BlobProvider provideBlobs() {
     return new BlobProvider(context, AppAttachmentSecretStore.INSTANCE);
+  }
+
+  @Override
+  public @NonNull RecordingManager provideRecordingManager() {
+    return new RecordingManager(context);
   }
 
   @VisibleForTesting

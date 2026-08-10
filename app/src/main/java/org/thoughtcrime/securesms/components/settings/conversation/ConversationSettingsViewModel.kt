@@ -132,6 +132,8 @@ sealed class ConversationSettingsViewModel(
 
   open fun refreshRecipient(): Unit = error("This ViewModel does not support this interaction")
 
+  open fun setRecordingEnabled(enabled: Boolean?): Unit = error("This ViewModel does not support this interaction")
+
   abstract fun setMuteUntil(muteUntil: Long)
 
   abstract fun unmute()
@@ -261,6 +263,14 @@ sealed class ConversationSettingsViewModel(
             state.copy(specificSettingsState = state.requireRecipientSettingsState().copy(identityRecord = identityRecord))
           }
         }
+
+        store.update { state ->
+          state.copy(
+            specificSettingsState = state.requireRecipientSettingsState().copy(
+              recordingEnabled = SignalStore.recording.getExplicitRecordingEnabledForContact(recipientId)
+            )
+          )
+        }
       }
     }
 
@@ -312,6 +322,17 @@ sealed class ConversationSettingsViewModel(
     override fun unblock() {
       repository.unblock(recipientId)
     }
+
+    override fun setRecordingEnabled(enabled: Boolean?) {
+      SignalStore.recording.setRecordingEnabledForContact(recipientId, enabled)
+      store.update { state ->
+        state.copy(
+          specificSettingsState = state.requireRecipientSettingsState().copy(
+            recordingEnabled = enabled
+          )
+        )
+      }
+    }
   }
 
   private class GroupSettingsViewModel(
@@ -344,7 +365,8 @@ sealed class ConversationSettingsViewModel(
           canModifyBlockedState = RecipientUtil.isBlockable(recipient),
           isArchived = repository.isArchived(recipient.id),
           specificSettingsState = state.requireGroupSettingsState().copy(
-            legacyGroupState = getLegacyGroupState()
+            legacyGroupState = getLegacyGroupState(),
+            recordingEnabled = SignalStore.recording.getExplicitRecordingEnabledForContact(recipient.id)
           )
         )
       }
@@ -546,6 +568,18 @@ sealed class ConversationSettingsViewModel(
 
     override fun unblock() {
       repository.unblock(groupId)
+    }
+
+    override fun setRecordingEnabled(enabled: Boolean?) {
+      val recipientId = store.state.recipient.id
+      SignalStore.recording.setRecordingEnabledForContact(recipientId, enabled)
+      store.update { state ->
+        state.copy(
+          specificSettingsState = state.requireGroupSettingsState().copy(
+            recordingEnabled = enabled
+          )
+        )
+      }
     }
 
     private fun loadMemberLabels(v2GroupId: GroupId.V2, groupMembers: List<GroupMemberEntry.FullMember>) = viewModelScope.launch(SignalDispatchers.Default) {

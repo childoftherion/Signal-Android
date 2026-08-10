@@ -48,6 +48,7 @@ import org.thoughtcrime.securesms.components.TypingStatusSender
 import org.thoughtcrime.securesms.crypto.storage.SignalServiceDataStoreImpl
 import org.thoughtcrime.securesms.database.DatabaseObserver
 import org.thoughtcrime.securesms.database.PendingRetryReceiptCache
+import org.thoughtcrime.securesms.recording.RecordingManager
 import org.thoughtcrime.securesms.dependencies.AppDependencies.authWebSocket
 import org.thoughtcrime.securesms.groups.GroupsV2Authorization
 import org.thoughtcrime.securesms.jobmanager.JobManager
@@ -269,6 +270,11 @@ object AppDependencies {
   @JvmStatic
   val blobs: BlobProvider by lazy {
     provider.provideBlobs()
+  }
+
+  @JvmStatic
+  val recordingManager: RecordingManager by lazy {
+    provider.provideRecordingManager()
   }
 
   private val _webSocketObserver: BehaviorSubject<WebSocketConnectionState> = BehaviorSubject.create()
@@ -545,5 +551,6 @@ object AppDependencies {
     fun provideSvrBApi(libSignalNetwork: Network): SvrBApi
     fun provideKeyTransparencyApi(unauthWebSocket: SignalWebSocket.UnauthenticatedWebSocket): KeyTransparencyApi
     fun provideBlobs(): BlobProvider
+    fun provideRecordingManager(): RecordingManager
   }
 }

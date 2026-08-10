@@ -104,6 +104,7 @@ import org.thoughtcrime.securesms.messages.IncomingMessageObserver;
 import org.thoughtcrime.securesms.migrations.ApplicationMigrations;
 import org.thoughtcrime.securesms.mms.SignalGlideModule;
 import org.thoughtcrime.securesms.ratelimit.RateLimitUtil;
+import org.thoughtcrime.securesms.recording.RecordingManager;
 import org.thoughtcrime.securesms.recipients.Recipient;
 import org.thoughtcrime.securesms.registration.util.RegistrationUtil;
 import org.thoughtcrime.securesms.registration.v2.AppContactSupportController;
@@ -215,6 +216,7 @@ public class ApplicationContext extends Application implements AppForegroundObse
               .addNonBlocking(() -> RegistrationUtil.maybeMarkRegistrationComplete())
               .addNonBlocking(() -> Glide.get(this))
               .addNonBlocking(this::cleanAvatarStorage)
+              .addNonBlocking(() -> RecordingManager.init(this))
               .addNonBlocking(this::initializeRevealableMessageManager)
               .addNonBlocking(this::initializePendingRetryReceiptManager)
               .addNonBlocking(this::initializeScheduledMessageManager)

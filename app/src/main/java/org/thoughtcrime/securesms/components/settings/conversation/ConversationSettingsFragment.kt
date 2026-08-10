@@ -631,6 +631,54 @@ class ConversationSettingsFragment :
             navController.safeNavigate(action)
           }
         )
+
+        var recordingEnabled: Boolean? = null
+        state.withRecipientSettingsState {
+          recordingEnabled = it.recordingEnabled
+        }
+        state.withGroupSettingsState {
+          recordingEnabled = it.recordingEnabled
+        }
+
+        val globalRecordingEnabled = SignalStore.recording.isRecordCallsEnabled
+        val recordingSummary = when (recordingEnabled) {
+          true -> getString(R.string.preferences_on)
+          false -> getString(R.string.preferences_off)
+          null -> getString(R.string.preferences__record_calls_use_global_setting, getString(if (globalRecordingEnabled) R.string.preferences_on else R.string.preferences_off))
+        }
+
+        clickPref(
+          title = DSLSettingsText.from(R.string.preferences__call_recording),
+          summary = DSLSettingsText.from(recordingSummary),
+          icon = DSLSettingsIcon.from(R.drawable.ic_mic_24),
+          onClick = {
+            val options = arrayOf(
+              getString(R.string.preferences__record_calls_use_global_setting, getString(if (globalRecordingEnabled) R.string.preferences_on else R.string.preferences_off)),
+              getString(R.string.preferences_on),
+              getString(R.string.preferences_off)
+            )
+
+            val checkedItem = when (recordingEnabled) {
+              null -> 0
+              true -> 1
+              false -> 2
+            }
+
+            MaterialAlertDialogBuilder(requireContext())
+              .setTitle(R.string.preferences__call_recording)
+              .setSingleChoiceItems(options, checkedItem) { dialog, which ->
+                val newValue = when (which) {
+                  0 -> null
+                  1 -> true
+                  2 -> false
+                  else -> null
+                }
+                viewModel.setRecordingEnabled(newValue)
+                dialog.dismiss()
+              }
+              .show()
+          }
+        )
       }
 
       if (!state.recipient.isReleaseNotes && SignalStore.labs.starredMessages) {

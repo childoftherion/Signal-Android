@@ -10011,5 +10011,15 @@
     <!-- Button declining to paste the recovery key -->
     <string name="RecoveryKeyWarningDialog__dont_share">Don\'t share</string>
 
+    <string name="call_recording_notification_title">Recording call with %1$s</string>
+    <string name="call_recording_notification_text">Call recording is active.</string>
+
+    <!-- Call Recording Settings -->
+    <string name="preferences__call_recording">Call recording</string>
+    <string name="preferences__record_all_calls">Record all calls</string>
+    <string name="preferences__record_calls_library">Recorded calls library</string>
+    <string name="preferences__record_calls_for_this_contact">Record calls for this contact</string>
+    <string name="preferences__record_calls_use_global_setting">Use global setting (%1$s)</string>
+
     <!-- EOF -->
 </resources>

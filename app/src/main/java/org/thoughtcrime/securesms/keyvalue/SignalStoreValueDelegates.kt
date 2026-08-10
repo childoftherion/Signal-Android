@@ -59,20 +59,23 @@ internal fun <T> SignalStoreValueDelegate<T>.withPrecondition(precondition: () -
   )
 }
 
+internal fun <T, R> SignalStoreValueDelegate<T>.map(read: (T) -> R, write: (R) -> T): SignalStoreValueDelegate<R> {
+  return MappingDelegate(this, read, write)
+}
+
 internal fun <T> SignalStoreValueDelegate<T>.map(transform: (T) -> T): SignalStoreValueDelegate<T> {
-  return MappingDelegate(
-    delegate = this,
-    transform = transform
-  )
+  return this.map(read = transform, write = { it })
 }
 
 /**
  * Kotlin delegate that serves as a base for all other value types. This allows us to only expose this sealed
  * class to callers and protect the individual implementations as private behind the various extension functions.
  */
-sealed class SignalStoreValueDelegate<T>(val store: KeyValueStore, open val default: T, private val onSet: ((T) -> Unit)? = null) {
+sealed class SignalStoreValueDelegate<T>(val store: KeyValueStore, private val onSet: ((T) -> Unit)? = null) {
 
   private var flow: Lazy<MutableStateFlow<T>> = lazy { MutableStateFlow(getValue(store)) }
+
+  abstract val default: T
 
   operator fun getValue(thisRef: Any?, property: KProperty<*>): T {
     return getValue(store)
@@ -94,7 +97,7 @@ sealed class SignalStoreValueDelegate<T>(val store: KeyValueStore, open val defa
   internal abstract fun setValue(values: KeyValueStore, value: T)
 }
 
-private class LongValue(private val key: String, default: Long, store: KeyValueStore) : SignalStoreValueDelegate<Long>(store, default) {
+private class LongValue(private val key: String, override val default: Long, store: KeyValueStore) : SignalStoreValueDelegate<Long>(store) {
   override fun getValue(values: KeyValueStore): Long {
     return values.getLong(key, default)
   }
@@ -104,7 +107,7 @@ private class LongValue(private val key: String, default: Long, store: KeyValueS
   }
 }
 
-private class BooleanValue(private val key: String, default: Boolean, store: KeyValueStore) : SignalStoreValueDelegate<Boolean>(store, default) {
+private class BooleanValue(private val key: String, override val default: Boolean, store: KeyValueStore) : SignalStoreValueDelegate<Boolean>(store) {
   override fun getValue(values: KeyValueStore): Boolean {
     return values.getBoolean(key, default)
   }
@@ -114,7 +117,7 @@ private class BooleanValue(private val key: String, default: Boolean, store: Key
   }
 }
 
-private class StringValue<T : String?>(private val key: String, default: T, store: KeyValueStore) : SignalStoreValueDelegate<T>(store, default) {
+private class StringValue<T : String?>(private val key: String, override val default: T, store: KeyValueStore) : SignalStoreValueDelegate<T>(store) {
   override fun getValue(values: KeyValueStore): T {
     @Suppress("UNCHECKED_CAST")
     return values.getString(key, default) as T
@@ -125,7 +128,7 @@ private class StringValue<T : String?>(private val key: String, default: T, stor
   }
 }
 
-private class IntValue(private val key: String, default: Int, store: KeyValueStore) : SignalStoreValueDelegate<Int>(store, default) {
+private class IntValue(private val key: String, override val default: Int, store: KeyValueStore) : SignalStoreValueDelegate<Int>(store) {
   override fun getValue(values: KeyValueStore): Int {
     return values.getInteger(key, default)
   }
@@ -135,7 +138,7 @@ private class IntValue(private val key: String, default: Int, store: KeyValueSto
   }
 }
 
-private class FloatValue(private val key: String, default: Float, store: KeyValueStore) : SignalStoreValueDelegate<Float>(store, default) {
+private class FloatValue(private val key: String, override val default: Float, store: KeyValueStore) : SignalStoreValueDelegate<Float>(store) {
   override fun getValue(values: KeyValueStore): Float {
     return values.getFloat(key, default)
   }
@@ -145,7 +148,7 @@ private class FloatValue(private val key: String, default: Float, store: KeyValu
   }
 }
 
-private class BlobValue(private val key: String, default: ByteArray, store: KeyValueStore) : SignalStoreValueDelegate<ByteArray>(store, default) {
+private class BlobValue(private val key: String, override val default: ByteArray, store: KeyValueStore) : SignalStoreValueDelegate<ByteArray>(store) {
   override fun getValue(values: KeyValueStore): ByteArray {
     return values.getBlob(key, default)
   }
@@ -155,7 +158,7 @@ private class BlobValue(private val key: String, default: ByteArray, store: KeyV
   }
 }
 
-private class NullableBlobValue(private val key: String, default: ByteArray?, store: KeyValueStore) : SignalStoreValueDelegate<ByteArray?>(store, default) {
+private class NullableBlobValue(private val key: String, override val default: ByteArray?, store: KeyValueStore) : SignalStoreValueDelegate<ByteArray?>(store) {
   override fun getValue(values: KeyValueStore): ByteArray? {
     return values.getBlob(key, default)
   }
@@ -165,7 +168,7 @@ private class NullableBlobValue(private val key: String, default: ByteArray?, st
   }
 }
 
-private class DurationValue(private val key: String, default: Duration?, store: KeyValueStore) : SignalStoreValueDelegate<Duration?>(store, default) {
+private class DurationValue(private val key: String, override val default: Duration?, store: KeyValueStore) : SignalStoreValueDelegate<Duration?>(store) {
   companion object {
     private const val UNSET: Long = -1
   }
@@ -181,11 +184,11 @@ private class DurationValue(private val key: String, default: Duration?, store: 
 
 private class KeyValueProtoWithDefaultValue<M>(
   private val key: String,
-  default: M,
+  override val default: M,
   private val adapter: ProtoAdapter<M>,
   store: KeyValueStore,
   onSet: ((M) -> Unit)? = null
-) : SignalStoreValueDelegate<M>(store, default, onSet) {
+) : SignalStoreValueDelegate<M>(store, onSet) {
   override fun getValue(values: KeyValueStore): M {
     return if (values.containsKey(key)) {
       adapter.decode(values.getBlob(key, null))
@@ -208,6 +211,9 @@ private class KeyValueProtoValue<M>(
   private val adapter: ProtoAdapter<M>,
   store: KeyValueStore
 ) : SignalStoreValueDelegate<M?>(store, null) {
+
+  override val default: M? = null
+
   override fun getValue(values: KeyValueStore): M? {
     return if (values.containsKey(key)) {
       adapter.decode(values.getBlob(key, null))
@@ -225,7 +231,7 @@ private class KeyValueProtoValue<M>(
   }
 }
 
-private class KeyValueEnumValue<T>(private val key: String, default: T, private val serializer: LongSerializer<T>, store: KeyValueStore) : SignalStoreValueDelegate<T>(store, default) {
+private class KeyValueEnumValue<T>(private val key: String, override val default: T, private val serializer: LongSerializer<T>, store: KeyValueStore) : SignalStoreValueDelegate<T>(store) {
   override fun getValue(values: KeyValueStore): T {
     return if (values.containsKey(key)) {
       serializer.deserialize(values.getLong(key, 0))
@@ -242,7 +248,10 @@ private class KeyValueEnumValue<T>(private val key: String, default: T, private 
 private class PreconditionDelegate<T>(
   private val delegate: SignalStoreValueDelegate<T>,
   private val precondition: () -> Boolean
-) : SignalStoreValueDelegate<T>(delegate.store, delegate.default) {
+) : SignalStoreValueDelegate<T>(delegate.store) {
+
+  override val default: T
+    get() = delegate.default
 
   override fun getValue(values: KeyValueStore): T {
     return if (precondition()) {
@@ -259,16 +268,20 @@ private class PreconditionDelegate<T>(
   }
 }
 
-private class MappingDelegate<T>(
+private class MappingDelegate<T, R>(
   private val delegate: SignalStoreValueDelegate<T>,
-  private val transform: (T) -> T
-) : SignalStoreValueDelegate<T>(delegate.store, delegate.default) {
+  private val read: (T) -> R,
+  private val write: (R) -> T
+) : SignalStoreValueDelegate<R>(delegate.store) {
 
-  override fun getValue(values: KeyValueStore): T {
-    return transform(delegate.getValue(values))
+  override val default: R
+    get() = read(delegate.default)
+
+  override fun getValue(values: KeyValueStore): R {
+    return read(delegate.getValue(values))
   }
 
-  override fun setValue(values: KeyValueStore, value: T) {
-    delegate.setValue(values, value)
+  override fun setValue(values: KeyValueStore, value: R) {
+    delegate.setValue(values, write(value))
   }
 }
