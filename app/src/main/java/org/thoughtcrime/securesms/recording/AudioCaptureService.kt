@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
@@ -83,6 +84,10 @@ class AudioCaptureService : SafeForegroundService() {
     private var currentRecording: RecordingFile? = null
     private var fileOutputStream: BufferedOutputStream? = null
     private var recordingStateListener: RecordingStateListener? = null
+    
+    // Silence detection
+    private var consecutiveSilenceBuffers = 0
+    private var totalBytesWritten = 0L
 
     // Storage
     private lateinit var recordingStorage: RecordingStorage
@@ -182,6 +187,7 @@ class AudioCaptureService : SafeForegroundService() {
             isVideoCall = isVideoCall,
             startTime = startTime
         )
+        totalBytesWritten = 0
 
         if (!startAudioCapture()) {
             Log.e(TAG, "Failed to start audio capture")
@@ -247,6 +253,19 @@ class AudioCaptureService : SafeForegroundService() {
                 return false
             }
 
+            if (Build.VERSION.SDK_INT >= 29) {
+                recorder.registerAudioRecordingCallback(mainExecutor, object : AudioManager.AudioRecordingCallback() {
+                    override fun onRecordingConfigChanged(configs: MutableList<android.media.AudioRecordingConfiguration>?) {
+                        super.onRecordingConfigChanged(configs)
+                        configs?.forEach { config ->
+                            if (config.clientAudioSessionId == recorder.audioSessionId) {
+                                Log.i(TAG, "Recording config changed for source $source: silenced=${config.isClientSilenced}")
+                            }
+                        }
+                    }
+                })
+            }
+
             recorder.startRecording()
             
             if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
@@ -258,19 +277,19 @@ class AudioCaptureService : SafeForegroundService() {
 
             audioRecord = recorder
 
-            // Start the recording thread
-            isPaused.set(false)
-            recordThread = Thread(this::recordAudioLoop).apply {
-                name = "call-recording-thread"
-                isDaemon = true
-                start()
+            // Start the recording thread if not already running
+            if (recordThread == null || !recordThread!!.isAlive) {
+                isPaused.set(false)
+                recordThread = Thread(this::recordAudioLoop).apply {
+                    name = "call-recording-thread"
+                    isDaemon = true
+                    start()
+                }
             }
 
             return true
         } catch (e: Exception) {
             Log.w(TAG, "Failed to start audio capture for source $source", e)
-            audioRecord?.release()
-            audioRecord = null
             return false
         }
     }
@@ -279,7 +298,6 @@ class AudioCaptureService : SafeForegroundService() {
      * Main recording loop that reads audio data and writes to file.
      */
     private fun recordAudioLoop() {
-        val audioRecord = this.audioRecord ?: return
         val currentRecording = this.currentRecording ?: return
 
         try {
@@ -287,12 +305,16 @@ class AudioCaptureService : SafeForegroundService() {
             
             // Write placeholder for WAV header (44 bytes)
             fileOutputStream?.write(ByteArray(44))
+            totalBytesWritten = 44
 
-            val buffer = ShortArray(audioRecord.bufferSizeInFrames)
+            val buffer = ShortArray(4096) // Read in consistent chunks
             var totalShortsRead = 0L
-            var maxSample = 0
+            var maxAmplitudeThisSecond = 0
+            var lastLogTime = System.currentTimeMillis()
 
             while (isRunning.get()) {
+                val audioRecord = this.audioRecord ?: break
+
                 // Check if recording has timed out
                 if (System.currentTimeMillis() - recordingStartTime.get() > MAX_RECORDING_DURATION_MS) {
                     Log.w(TAG, "Recording duration limit reached")
@@ -309,12 +331,13 @@ class AudioCaptureService : SafeForegroundService() {
 
                 if (read > 0) {
                     val byteData = ByteArray(read * 2)
+                    var hasSound = false
                     for (i in 0 until read) {
                         val shortVal = buffer[i].toInt()
                         
-                        // Track max sample to see if it's all zeros
                         val absVal = Math.abs(shortVal)
-                        if (absVal > maxSample) maxSample = absVal
+                        if (absVal > maxAmplitudeThisSecond) maxAmplitudeThisSecond = absVal
+                        if (absVal > 100) hasSound = true // Use a small threshold for "sound"
                         
                         byteData[i * 2] = (shortVal and 0xFF).toByte()
                         byteData[i * 2 + 1] = ((shortVal shr 8) and 0xFF).toByte()
@@ -322,17 +345,32 @@ class AudioCaptureService : SafeForegroundService() {
 
                     fileOutputStream?.write(byteData)
                     totalShortsRead += read
+                    totalBytesWritten += byteData.size
                     
-                    // Log progress every 5 seconds roughly
-                    if (totalShortsRead % (SAMPLE_RATE * 5) < buffer.size) {
-                        Log.d(TAG, "Recording... read $totalShortsRead shorts, max amplitude: $maxSample")
+                    if (hasSound) {
+                        consecutiveSilenceBuffers = 0
+                    } else {
+                        consecutiveSilenceBuffers++
+                    }
+
+                    // Log progress and peak amplitude every few seconds
+                    val now = System.currentTimeMillis()
+                    if (now - lastLogTime > 5000) {
+                        Log.d(TAG, "Recording [source $currentAudioSource]... total read: $totalShortsRead, peak amp: $maxAmplitudeThisSecond, silence: $consecutiveSilenceBuffers")
+                        
+                        // If we've had thousands of silence buffers (roughly 5-10 seconds of pure silence)
+                        // we might want to try switching sources, but that requires careful state management.
+                        // For now, let's just log it clearly.
+                        
+                        maxAmplitudeThisSecond = 0
+                        lastLogTime = now
                     }
                 } else if (read < 0) {
                     Log.e(TAG, "Error reading audio data: $read")
                     break
                 }
             }
-            Log.i(TAG, "Recording loop finished. Total shorts read: $totalShortsRead, peak amplitude: $maxSample")
+            Log.i(TAG, "Recording loop finished. Total shorts read: $totalShortsRead, final silence count: $consecutiveSilenceBuffers")
         } catch (e: Exception) {
             Log.e(TAG, "Error in recording loop", e)
             recordingStateListener?.onRecordingError("Recording error: ${e.message}")

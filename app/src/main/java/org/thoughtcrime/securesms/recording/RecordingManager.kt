@@ -177,12 +177,13 @@ class RecordingManager(private val context: Context) : AudioCaptureService.Recor
             // Start the audio capture service with a slight delay to avoid initial mic contention with WebRTC
             mainHandler.postDelayed({
                 if (getState() is RecordingState.ActiveRecording) {
-                    Log.i(TAG, "Delayed start of AudioCaptureService")
+                    val hasMicPermission = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    Log.i(TAG, "Delayed start of AudioCaptureService. Mic permission: $hasMicPermission")
                     startAudioCapture()
                 } else {
                     Log.w(TAG, "Not starting AudioCaptureService, state changed to: $currentState")
                 }
-            }, 500)
+            }, 800) // Slightly longer delay for stability
         }
     }
 
